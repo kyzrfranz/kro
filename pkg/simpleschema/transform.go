@@ -16,6 +16,7 @@ package simpleschema
 
 import (
 	"fmt"
+	"k8s.io/utils/ptr"
 	"slices"
 	"strconv"
 	"strings"
@@ -87,7 +88,7 @@ func (tf *transformer) buildOpenAPISchema(obj map[string]interface{}) (*extv1.JS
 }
 func (tf *transformer) transformField(
 	key string, value interface{},
-	// parentSchema is used to add the key to the required list
+// parentSchema is used to add the key to the required list
 	parentSchema *extv1.JSONSchemaProps,
 ) (*extv1.JSONSchemaProps, error) {
 	switch v := value.(type) {
@@ -168,11 +169,19 @@ func (tf *transformer) handleMapType(key, fieldType string) (*extv1.JSONSchemaPr
 		fieldJSONSchemaProps.AdditionalProperties.Schema = &preDefinedType.Schema
 	} else if isAtomicType(valueType) {
 		fieldJSONSchemaProps.AdditionalProperties.Schema.Type = valueType
+	} else if isInterface(valueType) {
+		fieldJSONSchemaProps.AdditionalProperties = nil
+		fieldJSONSchemaProps.Type = "object"
+		fieldJSONSchemaProps.XPreserveUnknownFields = ptr.To(true)
 	} else {
 		return nil, fmt.Errorf("unknown type: %s", valueType)
 	}
 
 	return fieldJSONSchemaProps, nil
+}
+
+func isInterface(fieldType string) bool {
+	return fieldType == "interface{}" || fieldType == "any"
 }
 
 func (tf *transformer) handleSliceType(key, fieldType string) (*extv1.JSONSchemaProps, error) {
